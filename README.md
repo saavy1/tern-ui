@@ -26,6 +26,9 @@ agent ──MCP──▶ tern-ui-mcp ──writes──▶ NAME.ternui (spec) �
   - `ui_reference`: every prop of one UI kind
 
   Specs live in `~/.local/state/tern-ui/pane-<chat pane>/`: `NAME.ternui`, `NAME.ternui.events`, `NAME.ternui.pane`.
+- **Orchestration (opt-in, experimental):** in a session with a tab named `orchestrator`, every other agent's finished
+  turn (or a stop to wait for input) is posted into that chat. Off unless you name a tab that way: it can't tell
+  whether a worker's question is for you or for the orchestrator, so it tends to be chatty.
 
 ## Install (each machine that runs agents and each Tern you look through)
 
