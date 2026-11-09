@@ -11,3 +11,9 @@ window = "window.luau"
 id = "view"
 title = "Agent UI"
 files = ["*.ternui"]
+
+# A session's pull requests (a .ternprs list from track_pr), kept live with gh.
+[[blocks]]
+id = "github"
+title = "Pull requests"
+files = ["*.ternprs"]

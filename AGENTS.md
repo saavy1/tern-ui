@@ -5,9 +5,10 @@ no runtime dependencies). README.md explains the design; read it first.
 
 ## Rules
 
-- **The plugin's two halves:** `window.luau` only claims `*.ternui` opens. Everything else lives in the host block
+- **The plugin's two halves:** `window.luau` only claims opens (`*.ternui` → `view`, `*.ternprs` → `github`) and runs
+  the ask bridge (`tern-ui:ask?pane=…&text=…` links → `cx.agents:ask`). Everything else lives in the host blocks
   (`host.luau`), because host blocks run on the machine the agent and its files are on, which is what makes remote
-  windows work. Window-only APIs (canvas, agents) don't reach a remote host's files; don't move logic there.
+  windows work. Host blocks reach a chat only through that bridge (`cx:open` of a `tern-ui:ask` link).
 - **The wire format is plain TSP nodes** `{k, p, c}` with `key` in `p`. The server builds them (`figure.ts`, `wire()`
   in `main.ts`); the block draws whatever it is given. No Tern SDK dependency.
 - **Specs are rewritten whole and atomically** (temp file, then rename); the block polls every 250 ms.

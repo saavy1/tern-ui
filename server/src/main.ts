@@ -14,6 +14,7 @@
 import { createInterface } from 'node:readline';
 import { figureNode, n, type Figure, type Node } from './figure.ts';
 import { applyUpdate, checkUi, checkUpdate, UI_REFERENCE, type UiNode, type UiUpdate } from './spec.ts';
+import { status as prStatus, track } from './prs.ts';
 import { close, describe, dir, events, next, show, type Placement } from './surface.ts';
 
 const VERSION = '0.1.0';
@@ -23,8 +24,8 @@ const VERSION = '0.1.0';
 const tone = { type: 'string', enum: ['note', 'info', 'success', 'warning', 'error', 'accent'] };
 const placement = {
    type: 'string',
-   enum: ['beside', 'below', 'tab'],
-   description: 'Where a new pane opens: beside the chat (default), below it (wide, short things) or in its own tab',
+   enum: ['beside', 'below', 'tab', 'float'],
+   description: 'Where a new pane opens: beside the chat (default), below it (wide, short things), float (a small card over the chat\'s top-right corner, for glanceable status) or in its own tab',
 };
 const handle = {
    type: 'string',
@@ -192,6 +193,31 @@ const TOOLS = [
       inputSchema: { type: 'object', properties: { handle: { type: 'string', description: 'One UI; default all of yours' } } },
    },
    {
+      name: 'track_pr',
+      description: [
+         'Keep pull requests in view: a pane below the chat shows each tracked PR live (checks with pass/fail/running,',
+         'review state, conflicts, latest comments), refreshed every 45s, with buttons to open it, re-run failed checks,',
+         'or send the failures back to you. With no arguments it tracks the PR of the current branch of the checkout you',
+         'work in (call it once you have opened a PR); pass number (and repo "owner/name" if it is another repo) for a',
+         'specific PR. Track the PRs you open, and check pr_status before saying a change is done.',
+      ].join(' '),
+      inputSchema: {
+         type: 'object',
+         properties: {
+            number: { type: 'number', description: 'A PR number' },
+            repo: { type: 'string', description: '"owner/name" (default: the repo of dir)' },
+            dir: { type: 'string', description: 'A checkout; default the working directory' },
+            placement: { ...placement, description: 'Where the pane opens the first time (default below)' },
+         },
+      },
+   },
+   {
+      name: 'pr_status',
+      description:
+         'The tracked PRs as text, fresh from GitHub: state, checks (failing ones named), review decision, conflicts, URL. Use it to confirm CI is green before you say a change is done.',
+      inputSchema: { type: 'object', properties: {} },
+   },
+   {
       name: 'ui_reference',
       description: 'Every prop of one UI kind (for the ui tool), or of all of them with kind "all".',
       inputSchema: { type: 'object', properties: { kind: { type: 'string', description: 'A kind, or "all"' } } },
@@ -276,6 +302,20 @@ async function call(name: string, a: Args, signal: AbortSignal): Promise<Result>
          const lines = which.flatMap(h => events(h).map(e => describe(h, e)));
          return text(lines.length ? lines.join('\n') : 'No new clicks.');
       }
+      case 'track_pr': {
+         const r = await track(
+            {
+               number: typeof a['number'] === 'number' ? a['number'] : undefined,
+               repo: typeof a['repo'] === 'string' ? a['repo'] : undefined,
+               dir: typeof a['dir'] === 'string' ? a['dir'] : undefined,
+            },
+            (a['placement'] as Placement) ?? 'below'
+         );
+         if (r.error) return text(r.error, true);
+         return text(`Tracking ${r.added}${r.opened ? ` (opened the pull requests pane: ${(a['placement'] as string) ?? 'below'})` : ''}.\n\n${await prStatus()}`);
+      }
+      case 'pr_status':
+         return text(await prStatus());
       case 'ui_reference': {
          const k = String(a['kind'] ?? 'all');
          if (k === 'all' || k === '*') return text(Object.values(UI_REFERENCE).join('\n'));

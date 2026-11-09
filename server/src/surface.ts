@@ -13,7 +13,7 @@ import type { Node } from './figure.ts';
 
 const TERN = process.env['TERN_EXE'] || 'tern';
 
-export type Placement = 'beside' | 'below' | 'tab';
+export type Placement = 'beside' | 'below' | 'tab' | 'float';
 
 /** Where this agent's surfaces live: one folder per chat pane (or per process outside Tern). */
 export const dir = join(
@@ -34,9 +34,9 @@ const run = (args: string[]): Promise<{ ok: boolean; out: string }> =>
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-/** The pane showing a handle, when that block is still open. */
-async function openPane(handle: string): Promise<number | undefined> {
-   const paneFile = `${specPath(handle)}.pane`;
+/** The pane showing a spec file, when its block is still open. */
+async function paneOf(path: string): Promise<number | undefined> {
+   const paneFile = `${path}.pane`;
    if (!existsSync(paneFile)) return undefined;
    const pane = Number(readFileSync(paneFile, 'utf8').trim());
    if (!pane) return undefined;
@@ -61,31 +61,50 @@ export interface Shown {
    error?: string;
 }
 
+/** The chat this server belongs to (clicks nobody waits on go there). */
+export const owner = Number(process.env['TERN_PANE']) || undefined;
+
+/** Writes a file whole, atomically, so a block never reads half of it. */
+export function writeSpec(path: string, value: unknown): void {
+   const tmp = `${path}.tmp`;
+   writeFileSync(tmp, JSON.stringify(value));
+   renameSync(tmp, path);
+}
+
 /** Writes a surface and makes sure a block shows it: opened the first time, redrawn in place after. */
 export async function show(handle: string, spec: { title: string; view: Node; waiting?: boolean }, how: Placement): Promise<Shown> {
    const path = specPath(handle);
-   const tmp = `${path}.tmp`;
-   writeFileSync(tmp, JSON.stringify({ v: 1, ...spec }));
-   renameSync(tmp, path);
-   const pane = await openPane(handle);
+   writeSpec(path, { v: 1, owner, ...spec });
+   const r = await ensureOpen(path, how, () => {
+      writeFileSync(`${path}.events`, '');
+      seen.set(handle, 0);
+   });
+   return r;
+}
+
+/** Opens a block for a spec file unless one already shows it; `fresh` runs before a new one opens. */
+export async function ensureOpen(path: string, how: Placement, fresh?: () => void): Promise<Shown> {
+   const pane = await paneOf(path);
    if (pane) return { pane, opened: false };
-   // A new block: forget the last one's pane and clicks.
    writeFileSync(`${path}.pane`, '');
-   writeFileSync(`${path}.events`, '');
-   seen.set(handle, 0);
+   fresh?.();
    const where = how === 'tab' ? ['--tab'] : ['--split', how === 'below' ? 'down' : 'right'];
    const { ok, out } = await run(['open', ...where, path]);
    if (!ok) return { opened: false, error: `tern open failed: ${out}` };
    for (let i = 0; i < 25; i++) {
       await sleep(120);
       const id = Number(readFileSync(`${path}.pane`, 'utf8').trim());
-      if (id) return { pane: id, opened: true };
+      if (id) {
+         // Floating: open as a split, then float it in the chat's top-right corner.
+         if (how === 'float') await run(['pip', String(id), ...(owner ? ['--over', String(owner)] : []), '--corner', 'tr']);
+         return { pane: id, opened: true };
+      }
    }
    return { opened: true, error: 'The block opened but has not reported in; is the tern-ui plugin installed and ready (`tern plugin list`)?' };
 }
 
 export async function close(handle: string): Promise<boolean> {
-   const pane = await openPane(handle);
+   const pane = await paneOf(specPath(handle));
    if (!pane) return false;
    return (await run(['close', String(pane)])).ok;
 }
