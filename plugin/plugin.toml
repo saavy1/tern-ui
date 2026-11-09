@@ -1,0 +1,13 @@
+schema = 1
+id = "tern-ui"
+name = "tern-ui"
+version = "0.1.0"
+description = "Native Tern UI for coding agents: figures, dashboards and questions drawn with Tern's own components."
+host = "host.luau"
+window = "window.luau"
+
+# A view of a .ternui spec file, drawn on the file's host.
+[[blocks]]
+id = "view"
+title = "Agent UI"
+files = ["*.ternui"]

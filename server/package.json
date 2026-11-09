@@ -1,0 +1,16 @@
+{
+  "name": "tern-ui-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "tern-ui-mcp": "src/main.ts" },
+  "scripts": {
+    "start": "bun src/main.ts",
+    "check": "tsc --noEmit",
+    "build": "bun build src/main.ts --compile --outfile dist/tern-ui-mcp"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
