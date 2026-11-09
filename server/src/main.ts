@@ -193,8 +193,8 @@ const TOOLS = [
    },
    {
       name: 'ui_reference',
-      description: 'Every prop of one UI kind (for the ui tool).',
-      inputSchema: { type: 'object', properties: { kind: { type: 'string' } }, required: ['kind'] },
+      description: 'Every prop of one UI kind (for the ui tool), or of all of them with kind "all".',
+      inputSchema: { type: 'object', properties: { kind: { type: 'string', description: 'A kind, or "all"' } } },
    },
 ];
 
@@ -277,8 +277,9 @@ async function call(name: string, a: Args, signal: AbortSignal): Promise<Result>
          return text(lines.length ? lines.join('\n') : 'No new clicks.');
       }
       case 'ui_reference': {
-         const k = String(a['kind']);
-         return text(UI_REFERENCE[k] ?? `No reference for "${k}". Kinds: ${Object.keys(UI_REFERENCE).join(', ')}`);
+         const k = String(a['kind'] ?? 'all');
+         if (k === 'all' || k === '*') return text(Object.values(UI_REFERENCE).join('\n'));
+         return text(UI_REFERENCE[k] ?? `No reference for "${k}". Kinds: ${Object.keys(UI_REFERENCE).join(', ')} (or "all")`);
       }
       default:
          return text(`Unknown tool ${name}`, true);
